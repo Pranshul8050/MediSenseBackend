@@ -8,18 +8,26 @@ function initFirebase() {
   if (initialized) return;
 
   try {
-    const credPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
-    if (!credPath) {
-      throw new Error("❌ FIREBASE_SERVICE_ACCOUNT_PATH is not set in .env");
+    const creds = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
+    if (!creds) {
+      throw new Error("❌ FIREBASE_SERVICE_ACCOUNT_PATH is not set in env");
     }
 
-    const resolved = path.resolve(process.cwd(), credPath);
+    let serviceAccount;
 
-    if (!fs.existsSync(resolved)) {
-      throw new Error(`❌ Firebase service account file not found at: ${resolved}`);
+    try {
+      // First, try to parse the environment variable as a JSON string (for Render)
+      serviceAccount = JSON.parse(creds);
+    } catch (e) {
+      // If parsing fails, assume it's a file path (for local development)
+      const resolvedPath = path.resolve(process.cwd(), creds);
+
+      if (!fs.existsSync(resolvedPath)) {
+        throw new Error(`❌ Firebase service account file not found at: ${resolvedPath}`);
+      }
+
+      serviceAccount = require(resolvedPath);
     }
-
-    const serviceAccount = require(resolved);
 
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
@@ -27,6 +35,7 @@ function initFirebase() {
 
     initialized = true;
     console.log("🔥 Firebase Admin initialized successfully");
+
   } catch (error) {
     console.error("⚠️ Firebase initialization failed:", error.message);
     process.exit(1);
